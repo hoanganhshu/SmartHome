@@ -64,6 +64,9 @@ async function loadRoomData() {
             const doorEl = document.getElementById('doorState');
             lightEl.style.color = data.lightState ? '#28a745' : '#dc3545';
             doorEl.style.color = data.doorState ? '#28a745' : '#dc3545';
+            
+            // Cập nhật hiệu ứng thời tiết dựa trên nhiệt độ
+            updateWeatherEffects(data.temperature !== undefined ? data.temperature : 0);
         } else {
             console.warn('⚠️ Không có dữ liệu phòng:', currentRoom);
             // Hiển thị "--" nếu không có dữ liệu
@@ -602,4 +605,116 @@ function removeChatMessage(messageId) {
     if (message) {
         message.remove();
     }
+}
+
+// ===================== WEATHER EFFECTS =====================
+// Cập nhật hiệu ứng thời tiết dựa trên nhiệt độ
+function updateWeatherEffects(temperature) {
+    const weatherIcon = document.getElementById('weatherIcon');
+    const sunCore = weatherIcon.querySelector('.sun-core');
+    const cloudsContainer = document.getElementById('cloudsContainer');
+    const snowContainer = document.getElementById('snowContainer');
+    const sunshineContainer = document.getElementById('sunshineContainer');
+    
+    // Reset tất cả classes và containers
+    weatherIcon.className = 'weather-icon';
+    cloudsContainer.innerHTML = '';
+    snowContainer.innerHTML = '';
+    sunshineContainer.innerHTML = '';
+    
+    if (temperature < 10) {
+        // Nhiệt độ rất thấp: Tuyết + Mặt trời tối
+        weatherIcon.classList.add('cold');
+        sunCore.style.background = 'radial-gradient(circle, #4a5568 0%, #2d3748 100%)';
+        sunCore.style.boxShadow = '0 0 20px rgba(74, 85, 104, 0.5)';
+        createSnowEffect();
+    } else if (temperature >= 10 && temperature <= 30) {
+        // Nhiệt độ mát: Mặt trời vàng + Mây
+        weatherIcon.classList.add('normal');
+        sunCore.style.background = 'radial-gradient(circle, #fbbf24 0%, #f59e0b 100%)';
+        sunCore.style.boxShadow = '0 0 30px rgba(251, 191, 36, 0.6), 0 0 60px rgba(251, 191, 36, 0.3)';
+        createCloudsEffect();
+    } else {
+        // Nhiệt độ cao: Mặt trời sáng + Nắng
+        weatherIcon.classList.add('hot');
+        sunCore.style.background = 'radial-gradient(circle, #fde047 0%, #fbbf24 50%, #f59e0b 100%)';
+        sunCore.style.boxShadow = '0 0 40px rgba(253, 224, 71, 0.8), 0 0 80px rgba(251, 191, 36, 0.5), 0 0 120px rgba(245, 158, 11, 0.3)';
+        createSunshineEffect();
+    }
+}
+
+// Tạo hiệu ứng mây bay
+function createCloudsEffect() {
+    const cloudsContainer = document.getElementById('cloudsContainer');
+    const numClouds = 15; // Tăng số lượng mây lên 15
+    
+    for (let i = 0; i < numClouds; i++) {
+        const cloud = document.createElement('div');
+        cloud.className = 'cloud';
+        
+        // Vị trí ngẫu nhiên nhưng phân bố đều
+        const startX = -500 - (Math.random() * 500); // Bắt đầu từ ngoài màn hình
+        const topY = 5 + Math.random() * 85; // Phân bố từ 5% đến 90% chiều cao
+        
+        cloud.style.left = `${startX}px`;
+        cloud.style.top = `${topY}%`;
+        cloud.style.animationDelay = `${Math.random() * 40}s`;
+        cloud.style.animationDuration = `${50 + Math.random() * 60}s`; // 50-110 giây để di chuyển mượt
+        cloud.style.opacity = `${0.2 + Math.random() * 0.15}`; // 0.2-0.35 (nhạt nhưng vẫn thấy)
+        cloud.style.transform = `scale(2.5)`; // To hơn: 2.5 lần mặt trời
+        cloud.style.filter = `blur(${0.5 + Math.random() * 0.5}px)`; // Blur nhẹ
+        // Đảm bảo màu trắng
+        cloud.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        
+        cloudsContainer.appendChild(cloud);
+    }
+}
+
+// Tạo hiệu ứng tuyết rơi
+function createSnowEffect() {
+    const snowContainer = document.getElementById('snowContainer');
+    const numSnowflakes = 1200; // Tăng gấp 4 lần: 300 * 4 = 1200
+    
+    for (let i = 0; i < numSnowflakes; i++) {
+        const snowflake = document.createElement('div');
+        snowflake.className = 'snowflake';
+        snowflake.style.left = `${Math.random() * 100}%`;
+        snowflake.style.animationDelay = `${Math.random() * 15}s`;
+        snowflake.style.animationDuration = `${2 + Math.random() * 8}s`; // 2-10 giây
+        snowflake.style.opacity = `${0.8 + Math.random() * 0.2}`; // 0.8-1.0 (rất sáng)
+        snowflake.style.width = `${2 + Math.random() * 8}px`; // 2-10px
+        snowflake.style.height = snowflake.style.width;
+        // Đảm bảo màu trắng
+        snowflake.style.backgroundColor = '#ffffff';
+        snowflake.style.color = '#ffffff';
+        snowContainer.appendChild(snowflake);
+    }
+}
+
+// Tạo hiệu ứng nắng (sunshine rays) - toàn app
+function createSunshineEffect() {
+    const sunshineContainer = document.getElementById('sunshineContainer');
+    
+    // Tạo nhiều lớp nắng để bao phủ toàn app
+    const numLayers = 3;
+    
+    for (let layer = 0; layer < numLayers; layer++) {
+        const numRays = 16 + (layer * 4); // 16, 20, 24 rays
+        
+        for (let i = 0; i < numRays; i++) {
+            const ray = document.createElement('div');
+            ray.className = 'sunshine-ray';
+            const angle = (360 / numRays) * i;
+            ray.style.setProperty('--angle', `${angle}deg`);
+            ray.style.animationDelay = `${(i * 0.05) + (layer * 0.3)}s`;
+            ray.style.opacity = `${0.2 + layer * 0.1}`; // 0.2, 0.3, 0.4
+            ray.style.height = `${150 + layer * 50}px`; // Tăng chiều dài theo layer
+            sunshineContainer.appendChild(ray);
+        }
+    }
+    
+    // Thêm overlay nắng nhẹ toàn màn hình
+    const overlay = document.createElement('div');
+    overlay.className = 'sunshine-overlay';
+    sunshineContainer.appendChild(overlay);
 }
