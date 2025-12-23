@@ -102,14 +102,20 @@ router.post('/control', async (req, res) => {
     const topic = `room/${room}/cmd`;
     const message = JSON.stringify(command);
     
-    mqttClient.publish(topic, message, (err) => {
+    mqttClient.publish(topic, message, async (err) => {
       if (err) {
         console.error('❌ Lỗi gửi MQTT:', err);
         return res.status(500).json({ error: 'Lỗi gửi lệnh điều khiển' });
       }
       
       // Ghi lại lệnh điều khiển vào lịch sử (Feature 7)
-      recordControlCommand(room, command);
+      try {
+        await recordControlCommand(room, command);
+        console.log(`✅ Đã ghi lịch sử cho lệnh điều khiển: ${room}`, command);
+      } catch (historyError) {
+        console.error('❌ Lỗi ghi lịch sử:', historyError);
+        // Không trả về lỗi vì lệnh đã gửi thành công
+      }
       
       console.log(`✅ Đã gửi lệnh đến ${topic}: ${message}`);
       res.json({ 

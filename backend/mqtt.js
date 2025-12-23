@@ -178,21 +178,72 @@ async function recordControlCommand(roomId, command) {
     // Kiểm tra xem MongoDB đã kết nối chưa
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState !== 1) {
-      console.log(`⚠️  MongoDB chưa kết nối, bỏ qua ghi lệnh điều khiển cho phòng ${roomId}`);
+      console.log(`⚠️  MongoDB chưa kết nối (readyState: ${mongoose.connection.readyState}), bỏ qua ghi lệnh điều khiển cho phòng ${roomId}`);
+      console.log(`⚠️  Vui lòng khởi động MongoDB để lưu lịch sử.`);
       return;
     }
     
-    const history = new History({
-      roomId: roomId,
-      action: 'control',
-      state: command,
-      timestamp: new Date()
-    });
+    console.log(`📝 Bắt đầu ghi lịch sử cho phòng ${roomId}, command:`, command);
     
-    await history.save();
-    console.log(`✅ Đã ghi lệnh điều khiển cho phòng ${roomId}`);
+    // Lấy dữ liệu phòng hiện tại để có sensorData
+    const currentData = getFromCache(roomId);
+    const sensorData = currentData ? {
+      people: currentData.people,
+      temp: currentData.temperature,
+      humidity: currentData.humidity
+    } : {};
+    
+    console.log(`📊 Sensor data:`, sensorData);
+    
+    // Ghi lại từng hành động trong command
+    const historyEntries = [];
+    
+    if (command.light !== undefined) {
+      historyEntries.push({
+        roomId: roomId,
+        action: 'light',
+        state: command.light === 1 || command.light === true ? 1 : 0,
+        sensorData: sensorData,
+        timestamp: new Date()
+      });
+      console.log(`📝 Thêm lịch sử: light = ${command.light}`);
+    }
+    
+    if (command.door !== undefined) {
+      historyEntries.push({
+        roomId: roomId,
+        action: 'door',
+        state: command.door === 1 || command.door === true ? 1 : 0,
+        sensorData: sensorData,
+        timestamp: new Date()
+      });
+      console.log(`📝 Thêm lịch sử: door = ${command.door}`);
+    }
+    
+    if (command.fan !== undefined) {
+      historyEntries.push({
+        roomId: roomId,
+        action: 'fan',
+        state: command.fan === 1 || command.fan === true ? 1 : 0,
+        sensorData: sensorData,
+        timestamp: new Date()
+      });
+      console.log(`📝 Thêm lịch sử: fan = ${command.fan}`);
+    }
+    
+    // Lưu tất cả các hành động vào database
+    if (historyEntries.length > 0) {
+      const result = await History.insertMany(historyEntries);
+      console.log(`✅ Đã ghi ${historyEntries.length} lệnh điều khiển vào lịch sử cho phòng ${roomId}`);
+      console.log(`✅ Kết quả:`, result.map(r => ({ id: r._id, action: r.action, state: r.state })));
+    } else {
+      console.log(`⚠️  Không có hành động nào để ghi lịch sử cho phòng ${roomId}`);
+    }
+    
   } catch (error) {
-    console.error(`❌ Lỗi ghi lệnh điều khiển:`, error.message);
+    console.error(`❌ Lỗi ghi lệnh điều khiển:`, error);
+    console.error(`❌ Error stack:`, error.stack);
+    throw error; // Throw để caller biết có lỗi
   }
 }
 

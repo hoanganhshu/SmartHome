@@ -146,18 +146,22 @@ async function loadHistory() {
             url += `&action=${actionFilter}`;
         }
         
+        console.log('📥 Đang tải lịch sử từ:', url);
         const response = await fetch(url);
+        
         if (!response.ok) {
-            throw new Error('Không thể tải lịch sử');
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const history = await response.json();
+        console.log('📥 Nhận được lịch sử:', history.length, 'bản ghi');
+        
         displayHistory(history);
         
     } catch (error) {
         console.error('❌ Lỗi tải lịch sử:', error);
         document.getElementById('historyList').innerHTML = 
-            '<p class="loading">❌ Lỗi tải lịch sử</p>';
+            '<p class="loading">❌ Lỗi tải lịch sử: ' + error.message + '<br><small>Vui lòng kiểm tra kết nối MongoDB và thử lại.</small></p>';
     }
 }
 
@@ -166,8 +170,8 @@ async function loadHistory() {
 function displayHistory(history) {
     const historyList = document.getElementById('historyList');
     
-    if (history.length === 0) {
-        historyList.innerHTML = '<p class="loading">Chưa có lịch sử</p>';
+    if (!history || history.length === 0) {
+        historyList.innerHTML = '<p class="loading">📭 Chưa có lịch sử sử dụng thiết bị.<br><small>Lịch sử sẽ được ghi lại khi bạn điều khiển thiết bị hoặc khi ESP32 gửi dữ liệu.<br><br>⚠️ <strong>Lưu ý:</strong> Để lưu lịch sử, bạn cần khởi động MongoDB. Nếu MongoDB chưa chạy, lịch sử sẽ không được lưu.</small></p>';
         return;
     }
     
@@ -500,11 +504,11 @@ async function sendChatMessage() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
+    body: JSON.stringify({
                 message: message,
                 roomId: currentRoom
-            })
-        });
+    })
+  });
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

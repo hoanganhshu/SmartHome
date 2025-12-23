@@ -10,13 +10,17 @@ const router = express.Router();
 router.get('/:roomId', async (req, res) => {
   try {
     const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) {
-      // Nếu MongoDB chưa kết nối, trả về mảng rỗng
-      return res.json([]);
-    }
-    
     const { roomId } = req.params;
     const { limit = 100, action } = req.query; // limit: số lượng bản ghi, action: lọc theo loại hành động
+    
+    console.log(`📥 Yêu cầu lấy lịch sử cho phòng ${roomId}, limit: ${limit}, action: ${action || 'all'}`);
+    console.log(`📊 MongoDB readyState: ${mongoose.connection.readyState} (1 = connected)`);
+    
+    if (mongoose.connection.readyState !== 1) {
+      // Nếu MongoDB chưa kết nối, trả về mảng rỗng
+      console.log(`⚠️  MongoDB chưa kết nối, trả về mảng rỗng`);
+      return res.json([]);
+    }
     
     // Xây dựng query
     const query = { roomId: roomId };
@@ -24,16 +28,21 @@ router.get('/:roomId', async (req, res) => {
       query.action = action; // Lọc theo loại hành động (light, door, fan, motion)
     }
     
+    console.log(`🔍 Query:`, query);
+    
     // Lấy lịch sử, sắp xếp theo thời gian mới nhất trước
     const history = await History.find(query)
       .sort({ timestamp: -1 }) // Sắp xếp giảm dần (mới nhất trước)
       .limit(parseInt(limit))
       .select('action state sensorData timestamp'); // Chỉ lấy các trường cần thiết
     
+    console.log(`✅ Tìm thấy ${history.length} bản ghi lịch sử cho phòng ${roomId}`);
+    
     res.json(history);
   } catch (error) {
-    console.error('❌ Lỗi lấy lịch sử:', error.message);
-    res.status(500).json({ error: 'Lỗi lấy lịch sử' });
+    console.error('❌ Lỗi lấy lịch sử:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Lỗi lấy lịch sử', details: error.message });
   }
 });
 
