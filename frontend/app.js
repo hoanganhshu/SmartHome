@@ -276,3 +276,177 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ===================== VOICE CONTROL =====================
+// Tích hợp AI điều khiển bằng giọng nói
+
+let recognition = null;
+let isListening = false;
+
+// Kiểm tra trình duyệt có hỗ trợ Speech Recognition không
+function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        document.getElementById('voiceStatus').textContent = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
+        document.getElementById('voiceStatus').className = 'voice-status error';
+        document.getElementById('voiceBtn').disabled = true;
+        return false;
+    }
+    
+    recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN'; // Tiếng Việt
+    recognition.continuous = false; // Dừng sau khi nói xong
+    recognition.interimResults = false; // Chỉ trả về kết quả cuối cùng
+    
+    recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('voiceBtn').classList.add('listening');
+        document.getElementById('voiceIcon').textContent = '🔴';
+        document.getElementById('voiceText').textContent = 'Đang nghe...';
+        document.getElementById('voiceStatus').textContent = '🎤 Đang nghe... Hãy nói lệnh của bạn';
+        document.getElementById('voiceStatus').className = 'voice-status listening';
+    };
+    
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase().trim();
+        console.log('🎤 Nhận diện được:', transcript);
+        
+        document.getElementById('voiceStatus').textContent = `📝 Đã nghe: "${transcript}"`;
+        document.getElementById('voiceStatus').className = 'voice-status processing';
+        
+        // Xử lý lệnh giọng nói
+        processVoiceCommand(transcript);
+    };
+    
+    recognition.onerror = (event) => {
+        console.error('❌ Lỗi nhận diện giọng nói:', event.error);
+        isListening = false;
+        document.getElementById('voiceBtn').classList.remove('listening');
+        document.getElementById('voiceIcon').textContent = '🎤';
+        document.getElementById('voiceText').textContent = 'Bấm để nói';
+        
+        let errorMsg = '❌ Lỗi nhận diện giọng nói';
+        if (event.error === 'no-speech') {
+            errorMsg = '⚠️ Không nghe thấy giọng nói. Vui lòng thử lại.';
+        } else if (event.error === 'network') {
+            errorMsg = '❌ Lỗi kết nối. Vui lòng kiểm tra internet.';
+        }
+        
+        document.getElementById('voiceStatus').textContent = errorMsg;
+        document.getElementById('voiceStatus').className = 'voice-status error';
+    };
+    
+    recognition.onend = () => {
+        isListening = false;
+        document.getElementById('voiceBtn').classList.remove('listening');
+        document.getElementById('voiceIcon').textContent = '🎤';
+        document.getElementById('voiceText').textContent = 'Bấm để nói';
+    };
+    
+    return true;
+}
+
+// Xử lý lệnh giọng nói tiếng Việt
+function processVoiceCommand(transcript) {
+    // Chuẩn hóa text: loại bỏ dấu, chuyển thành chữ thường
+    const normalized = transcript
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    
+    console.log('🔍 Xử lý lệnh:', normalized);
+    
+    // Tìm phòng (P101, P102, P103)
+    let targetRoom = currentRoom; // Mặc định là phòng đang chọn
+    const roomMatch = normalized.match(/phong\s*(\d{3})|p\s*(\d{3})/);
+    if (roomMatch) {
+        const roomNum = roomMatch[1] || roomMatch[2];
+        targetRoom = `P${roomNum}`;
+    }
+    
+    // Tìm thiết bị và hành động
+    let device = null;
+    let action = null;
+    
+    // Đèn
+    if (normalized.includes('den') || normalized.includes('đèn')) {
+        device = 'light';
+        if (normalized.includes('bat') || normalized.includes('bật')) {
+            action = 1;
+        } else if (normalized.includes('tat') || normalized.includes('tắt')) {
+            action = 0;
+        }
+    }
+    // Cửa
+    else if (normalized.includes('cua') || normalized.includes('cửa')) {
+        device = 'door';
+        if (normalized.includes('mo') || normalized.includes('mở')) {
+            action = 1;
+        } else if (normalized.includes('dong') || normalized.includes('đóng')) {
+            action = 0;
+        }
+    }
+    // Quạt
+    else if (normalized.includes('quat') || normalized.includes('quạt')) {
+        device = 'fan';
+        if (normalized.includes('bat') || normalized.includes('bật')) {
+            action = 1;
+        } else if (normalized.includes('tat') || normalized.includes('tắt')) {
+            action = 0;
+        }
+    }
+    
+    // Thực thi lệnh
+    if (device !== null && action !== null) {
+        // Nếu đổi phòng, chọn phòng mới trước
+        if (targetRoom !== currentRoom) {
+            selectRoom(targetRoom);
+            setTimeout(() => {
+                controlDevice(device, action);
+            }, 500);
+        } else {
+            controlDevice(device, action);
+        }
+        
+        const actionText = action === 1 ? 
+            (device === 'light' ? 'bật đèn' : device === 'door' ? 'mở cửa' : 'bật quạt') :
+            (device === 'light' ? 'tắt đèn' : device === 'door' ? 'đóng cửa' : 'tắt quạt');
+        
+        document.getElementById('voiceStatus').textContent = `✅ Đã ${actionText} phòng ${targetRoom}`;
+        document.getElementById('voiceStatus').className = 'voice-status success';
+        
+        showNotification(`Đã ${actionText} phòng ${targetRoom} bằng giọng nói`, 'success');
+    } else {
+        document.getElementById('voiceStatus').textContent = '⚠️ Không hiểu lệnh. Vui lòng thử lại với cú pháp: "Bật đèn phòng 101"';
+        document.getElementById('voiceStatus').className = 'voice-status error';
+    }
+}
+
+// Bật/tắt điều khiển bằng giọng nói
+function toggleVoiceControl() {
+    if (!recognition) {
+        if (!initSpeechRecognition()) {
+            return;
+        }
+    }
+    
+    if (isListening) {
+        recognition.stop();
+    } else {
+        try {
+            recognition.start();
+        } catch (error) {
+            console.error('❌ Lỗi khởi động recognition:', error);
+            document.getElementById('voiceStatus').textContent = '❌ Lỗi khởi động. Vui lòng thử lại.';
+            document.getElementById('voiceStatus').className = 'voice-status error';
+        }
+    }
+}
+
+// Khởi tạo Speech Recognition sau khi DOM sẵn sàng
+setTimeout(() => {
+    if (document.getElementById('voiceBtn')) {
+        initSpeechRecognition();
+    }
+}, 500);
