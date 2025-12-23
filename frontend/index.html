@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Nhà Thông Minh</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🏠 Hệ Thống Nhà Thông Minh</h1>
+            <p>Điều khiển và theo dõi các phòng P101, P102, P103</p>
+        </header>
+
+        <!-- Room Selection -->
+        <div class="room-selector">
+            <h2>Chọn Phòng</h2>
+            <div class="room-buttons">
+                <button class="room-btn active" data-room="P101" onclick="selectRoom('P101')">P101</button>
+                <button class="room-btn" data-room="P102" onclick="selectRoom('P102')">P102</button>
+                <button class="room-btn" data-room="P103" onclick="selectRoom('P103')">P103</button>
+            </div>
+        </div>
+
+        <!-- Room Information Display -->
+        <div class="room-info" id="roomInfo">
+            <h2>Thông Tin Phòng: <span id="currentRoom">P101</span></h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">👥</div>
+                    <div class="info-label">Số Người</div>
+                    <div class="info-value" id="people">0</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🌡️</div>
+                    <div class="info-label">Nhiệt Độ</div>
+                    <div class="info-value" id="temperature">0°C</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">💧</div>
+                    <div class="info-label">Độ Ẩm</div>
+                    <div class="info-value" id="humidity">0%</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">💡</div>
+                    <div class="info-label">Đèn</div>
+                    <div class="info-value" id="lightState">OFF</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🚪</div>
+                    <div class="info-label">Cửa</div>
+                    <div class="info-value" id="doorState">CLOSED</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>Điều Khiển Thiết Bị</h2>
+            <div class="control-grid">
+                <div class="control-group">
+                    <h3>💡 Điều Khiển Đèn</h3>
+                    <button class="control-btn btn-on" onclick="controlDevice('light', 1)">Bật Đèn</button>
+                    <button class="control-btn btn-off" onclick="controlDevice('light', 0)">Tắt Đèn</button>
+                </div>
+                <div class="control-group">
+                    <h3>🚪 Điều Khiển Cửa</h3>
+                    <button class="control-btn btn-on" onclick="controlDevice('door', 1)">Mở Cửa</button>
+                    <button class="control-btn btn-off" onclick="controlDevice('door', 0)">Đóng Cửa</button>
+                </div>
+                <div class="control-group">
+                    <h3>🌀 Điều Khiển Quạt</h3>
+                    <button class="control-btn btn-on" onclick="controlDevice('fan', 1)">Bật Quạt</button>
+                    <button class="control-btn btn-off" onclick="controlDevice('fan', 0)">Tắt Quạt</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Section (Feature 7) -->
+        <div class="history-section">
+            <h2>📊 Lịch Sử Sử Dụng Thiết Bị</h2>
+            <div class="history-controls">
+                <select id="historyActionFilter" onchange="loadHistory()">
+                    <option value="">Tất Cả Hành Động</option>
+                    <option value="light">Đèn</option>
+                    <option value="door">Cửa</option>
+                    <option value="fan">Quạt</option>
+                    <option value="motion">Chuyển Động</option>
+                    <option value="control">Điều Khiển</option>
+                </select>
+                <button class="refresh-btn" onclick="loadHistory()">🔄 Làm Mới</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <p class="loading">Đang tải lịch sử...</p>
+            </div>
+        </div>
+
+        <!-- Smart Home Integration Info (Feature 8) -->
+        <div class="smart-home-section">
+            <h2>🎤 Tích Hợp Smart Home (Alexa/Google Home)</h2>
+            <div class="info-box">
+                <p><strong>API Endpoint:</strong> <code>POST /voice/command</code></p>
+                <p><strong>Ví dụ lệnh giọng nói:</strong></p>
+                <ul>
+                    <li>"Bật đèn phòng P101" → <code>{ room: "P101", intent: "turn_on_light" }</code></li>
+                    <li>"Mở cửa phòng P102" → <code>{ room: "P102", intent: "open_door" }</code></li>
+                    <li>"Tắt quạt phòng P103" → <code>{ room: "P103", intent: "turn_off_fan" }</code></li>
+                </ul>
+                <p class="note">💡 API này cho phép Alexa/Google Home điều khiển thiết bị bằng giọng nói</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+
+
