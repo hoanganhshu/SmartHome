@@ -136,6 +136,34 @@
         </div>
     </div>
 
+    <!-- AI Chat Box -->
+    <div id="chatContainer" class="chat-container">
+        <div class="chat-header">
+            <h3>🤖 AI Assistant</h3>
+            <button class="chat-close" onclick="toggleChat()">×</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message bot">
+                <div class="message-content">
+                    👋 Xin chào! Tôi là AI Assistant. Tôi có thể giúp bạn:<br>
+                    • Xem thông tin các phòng<br>
+                    • Điều khiển thiết bị<br>
+                    • Nhận cảnh báo về phòng<br><br>
+                    Hãy thử hỏi: "Thông tin phòng 101" hoặc "Cảnh báo"
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Nhập câu hỏi hoặc lệnh..." onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send" onclick="sendChatMessage()">📤</button>
+        </div>
+    </div>
+
+    <!-- Chat Icon Button -->
+    <button id="chatIcon" class="chat-icon-btn" onclick="toggleChat()">
+        💬
+    </button>
+
     <script src="app.js"></script>
 </body>
 </html>

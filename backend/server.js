@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const historyRouter = require('./routers/history');
 const roomsRouter = require('./routers/rooms');
 const voiceRouter = require('./routers/voice'); // API cho Smart Home (Alexa/Google Home)
+const chatRouter = require('./routers/chat'); // API cho AI Chat
 const { handleMqttMessage } = require('./mqtt');
 
 const app = express();
@@ -60,6 +61,7 @@ app.locals.mqttClient = mqttClient;
 app.use('/history', historyRouter); // Lịch sử sử dụng thiết bị
 app.use('/rooms', roomsRouter); // Thông tin và điều khiển phòng
 app.use('/voice', voiceRouter); // API cho Smart Home (Alexa/Google Home)
+app.use('/chat', chatRouter); // API cho AI Chat
 
 // ===================== START SERVER =====================
 app.listen(PORT, () => {

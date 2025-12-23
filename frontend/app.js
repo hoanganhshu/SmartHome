@@ -48,22 +48,49 @@ async function loadRoomData() {
         }
         
         const data = await response.json();
+        console.log('📥 Room data received:', data);
         
-        // Cập nhật thông tin lên giao diện
-        document.getElementById('people').textContent = data.people || 0;
-        document.getElementById('temperature').textContent = `${data.temperature || 0}°C`;
-        document.getElementById('humidity').textContent = `${data.humidity || 0}%`;
-        document.getElementById('lightState').textContent = data.lightState ? 'ON' : 'OFF';
-        document.getElementById('doorState').textContent = data.doorState ? 'OPEN' : 'CLOSED';
-        
-        // Cập nhật màu sắc cho trạng thái
-        const lightEl = document.getElementById('lightState');
-        const doorEl = document.getElementById('doorState');
-        lightEl.style.color = data.lightState ? '#28a745' : '#dc3545';
-        doorEl.style.color = data.doorState ? '#28a745' : '#dc3545';
+        // Kiểm tra nếu có dữ liệu
+        if (data && Object.keys(data).length > 0) {
+            // Cập nhật thông tin lên giao diện
+            document.getElementById('people').textContent = data.people !== undefined ? data.people : 0;
+            document.getElementById('temperature').textContent = `${data.temperature !== undefined ? data.temperature : 0}°C`;
+            document.getElementById('humidity').textContent = `${data.humidity !== undefined ? data.humidity : 0}%`;
+            document.getElementById('lightState').textContent = data.lightState ? 'ON' : 'OFF';
+            document.getElementById('doorState').textContent = data.doorState ? 'OPEN' : 'CLOSED';
+            
+            // Cập nhật màu sắc cho trạng thái
+            const lightEl = document.getElementById('lightState');
+            const doorEl = document.getElementById('doorState');
+            lightEl.style.color = data.lightState ? '#28a745' : '#dc3545';
+            doorEl.style.color = data.doorState ? '#28a745' : '#dc3545';
+        } else {
+            console.warn('⚠️ Không có dữ liệu phòng:', currentRoom);
+            // Hiển thị "--" nếu không có dữ liệu
+            document.getElementById('people').textContent = '--';
+            document.getElementById('temperature').textContent = '--';
+            document.getElementById('humidity').textContent = '--';
+            document.getElementById('lightState').textContent = '--';
+            document.getElementById('doorState').textContent = '--';
+        }
         
     } catch (error) {
         console.error('❌ Lỗi tải dữ liệu phòng:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+        });
+        
+        // Hiển thị lỗi trên UI
+        document.getElementById('people').textContent = 'Error';
+        document.getElementById('temperature').textContent = 'Error';
+        document.getElementById('humidity').textContent = 'Error';
+        
+        // Chỉ hiển thị notification nếu lỗi thực sự
+        if (error.message && !error.message.includes('JSON')) {
+            showNotification('Không thể tải dữ liệu. Kiểm tra kết nối server.', 'error');
+        }
     }
 }
 
@@ -347,78 +374,60 @@ function initSpeechRecognition() {
     return true;
 }
 
-// Xử lý lệnh giọng nói tiếng Việt
-function processVoiceCommand(transcript) {
-    // Chuẩn hóa text: loại bỏ dấu, chuyển thành chữ thường
-    const normalized = transcript
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
+// Xử lý lệnh giọng nói với AI
+async function processVoiceCommand(transcript) {
+    console.log('🎤 Nhận diện được:', transcript);
     
-    console.log('🔍 Xử lý lệnh:', normalized);
+    document.getElementById('voiceStatus').textContent = `📝 Đã nghe: "${transcript}"`;
+    document.getElementById('voiceStatus').className = 'voice-status processing';
     
-    // Tìm phòng (P101, P102, P103)
-    let targetRoom = currentRoom; // Mặc định là phòng đang chọn
-    const roomMatch = normalized.match(/phong\s*(\d{3})|p\s*(\d{3})/);
-    if (roomMatch) {
-        const roomNum = roomMatch[1] || roomMatch[2];
-        targetRoom = `P${roomNum}`;
-    }
-    
-    // Tìm thiết bị và hành động
-    let device = null;
-    let action = null;
-    
-    // Đèn
-    if (normalized.includes('den') || normalized.includes('đèn')) {
-        device = 'light';
-        if (normalized.includes('bat') || normalized.includes('bật')) {
-            action = 1;
-        } else if (normalized.includes('tat') || normalized.includes('tắt')) {
-            action = 0;
-        }
-    }
-    // Cửa
-    else if (normalized.includes('cua') || normalized.includes('cửa')) {
-        device = 'door';
-        if (normalized.includes('mo') || normalized.includes('mở')) {
-            action = 1;
-        } else if (normalized.includes('dong') || normalized.includes('đóng')) {
-            action = 0;
-        }
-    }
-    // Quạt
-    else if (normalized.includes('quat') || normalized.includes('quạt')) {
-        device = 'fan';
-        if (normalized.includes('bat') || normalized.includes('bật')) {
-            action = 1;
-        } else if (normalized.includes('tat') || normalized.includes('tắt')) {
-            action = 0;
-        }
-    }
-    
-    // Thực thi lệnh
-    if (device !== null && action !== null) {
-        // Nếu đổi phòng, chọn phòng mới trước
-        if (targetRoom !== currentRoom) {
-            selectRoom(targetRoom);
-            setTimeout(() => {
-                controlDevice(device, action);
-            }, 500);
-        } else {
-            controlDevice(device, action);
-        }
+    try {
+        // Gửi đến AI để xử lý
+        const response = await fetch(`${API_BASE}/chat/message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: transcript,
+                roomId: currentRoom
+            })
+        });
         
-        const actionText = action === 1 ? 
-            (device === 'light' ? 'bật đèn' : device === 'door' ? 'mở cửa' : 'bật quạt') :
-            (device === 'light' ? 'tắt đèn' : device === 'door' ? 'đóng cửa' : 'tắt quạt');
+        const data = await response.json();
         
-        document.getElementById('voiceStatus').textContent = `✅ Đã ${actionText} phòng ${targetRoom}`;
+        const aiResponse = data.response || data.text || "Đã xử lý lệnh";
+        document.getElementById('voiceStatus').textContent = aiResponse;
         document.getElementById('voiceStatus').className = 'voice-status success';
         
-        showNotification(`Đã ${actionText} phòng ${targetRoom} bằng giọng nói`, 'success');
-    } else {
-        document.getElementById('voiceStatus').textContent = '⚠️ Không hiểu lệnh. Vui lòng thử lại với cú pháp: "Bật đèn phòng 101"';
+        // Hiển thị cảnh báo nếu có
+        if (data.warnings && data.warnings.length > 0) {
+            data.warnings.forEach(warning => {
+                showNotification(warning, 'error');
+            });
+        }
+        
+        // Thực thi lệnh nếu có
+        if (data.command) {
+            const device = Object.keys(data.command.action)[0];
+            const action = Object.values(data.command.action)[0];
+            
+            // Nếu đổi phòng, chọn phòng mới trước
+            if (data.command.room !== currentRoom) {
+                selectRoom(data.command.room);
+                setTimeout(() => {
+                    controlDevice(device, action);
+                }, 500);
+            } else {
+                controlDevice(device, action);
+            }
+            
+            showNotification(`Đã thực hiện lệnh bằng giọng nói`, 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Lỗi xử lý lệnh giọng nói:', error);
+        document.getElementById('voiceStatus').textContent = '❌ Lỗi xử lý lệnh. Vui lòng thử lại.';
         document.getElementById('voiceStatus').className = 'voice-status error';
     }
 }
@@ -450,3 +459,143 @@ setTimeout(() => {
         initSpeechRecognition();
     }
 }, 500);
+
+// ===================== AI CHAT =====================
+let chatOpen = false;
+
+function toggleChat() {
+    chatOpen = !chatOpen;
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatOpen) {
+        chatContainer.classList.add('active');
+        document.getElementById('chatInput').focus();
+    } else {
+        chatContainer.classList.remove('active');
+    }
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Hiển thị tin nhắn của user
+    addChatMessage(message, 'user');
+    input.value = '';
+    
+    // Hiển thị "đang suy nghĩ"
+    const thinkingId = addChatMessage('🤔 Đang xử lý...', 'bot');
+    
+    // Gửi đến AI
+    try {
+        const response = await fetch(`${API_BASE}/chat/message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: message,
+                roomId: currentRoom
+            })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Nhận data từ API:', data);
+        
+        // Xóa "đang suy nghĩ"
+        removeChatMessage(thinkingId);
+        
+        // Hiển thị phản hồi từ AI (đảm bảo có giá trị)
+        let aiResponse = null;
+        
+        if (data && typeof data === 'object') {
+          aiResponse = data.response || data.text || data.message;
+        }
+        
+        if (!aiResponse || aiResponse === "undefined" || aiResponse === undefined || aiResponse === null || aiResponse === "") {
+          console.error('❌ Response không hợp lệ:', data);
+          addChatMessage("Xin lỗi, có lỗi xảy ra khi nhận phản hồi từ AI. Vui lòng thử lại.", 'bot');
+        } else {
+          console.log('✅ Hiển thị response');
+          addChatMessage(String(aiResponse), 'bot');
+        }
+        
+        // Hiển thị cảnh báo nếu có
+        if (data.warnings && data.warnings.length > 0) {
+            data.warnings.forEach(warning => {
+                addChatMessage(`⚠️ ${warning}`, 'bot');
+            });
+        }
+        
+        // Nếu có lệnh điều khiển, thực thi
+        if (data.command) {
+            setTimeout(() => {
+                const device = Object.keys(data.command.action)[0];
+                const action = Object.values(data.command.action)[0];
+                controlDevice(device, action);
+                // Tải lại dữ liệu sau khi điều khiển
+                setTimeout(() => {
+                    loadRoomData();
+                    loadHistory();
+                }, 1000);
+            }, 500);
+        }
+        
+    } catch (error) {
+        console.error('❌ Lỗi chat:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            type: error.constructor.name
+        });
+        removeChatMessage(thinkingId);
+        
+        // Xử lý các loại lỗi khác nhau
+        let errorMessage = '❌ Lỗi kết nối. ';
+        if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('fetch'))) {
+            errorMessage += 'Không thể kết nối đến server.\n\n';
+            errorMessage += 'Vui lòng kiểm tra:\n';
+            errorMessage += '• Backend server có đang chạy không (http://localhost:3000)\n';
+            errorMessage += '• Kiểm tra kết nối internet\n';
+            errorMessage += '• Thử làm mới trang (F5)';
+        } else if (error.message && error.message.includes('JSON')) {
+            errorMessage += 'Lỗi xử lý dữ liệu từ server.';
+        } else {
+            errorMessage += error.message || 'Vui lòng thử lại.';
+        }
+        
+        removeChatMessage(thinkingId);
+        addChatMessage(errorMessage, 'bot');
+    }
+}
+
+function addChatMessage(text, type) {
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    const messageId = 'msg-' + Date.now() + '-' + Math.random();
+    messageDiv.id = messageId;
+    messageDiv.className = `chat-message ${type}`;
+    messageDiv.innerHTML = `<div class="message-content">${text}</div>`;
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    return messageId;
+}
+
+function removeChatMessage(messageId) {
+    const message = document.getElementById(messageId);
+    if (message) {
+        message.remove();
+    }
+}
