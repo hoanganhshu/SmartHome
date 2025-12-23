@@ -3,23 +3,44 @@
 
 const express = require('express');
 const Room = require('../models/Room');
-const { recordControlCommand } = require('../mqtt');
+const { recordControlCommand, getFromCache } = require('../mqtt');
 const router = express.Router();
 
 // GET /rooms - Lấy danh sách tất cả các phòng
 router.get('/', async (req, res) => {
   try {
     const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) {
-      // Nếu MongoDB chưa kết nối, trả về mảng rỗng
-      return res.json([]);
+    const { getFromCache } = require('../mqtt');
+    
+    // Lấy từ cache trước (dữ liệu real-time)
+    const cachedRooms = [];
+    const defaultRooms = ['P101', 'P102', 'P103'];
+    
+    for (const roomId of defaultRooms) {
+      const cached = getFromCache(roomId);
+      if (cached) {
+        cachedRooms.push(cached);
+      }
     }
     
-    const rooms = await Room.find({})
-      .select('roomId people temperature humidity lightState doorState fanState lastUpdate')
-      .sort({ roomId: 1 });
+    // Nếu có dữ liệu từ cache, trả về
+    if (cachedRooms.length > 0) {
+      return res.json(cachedRooms);
+    }
     
-    res.json(rooms);
+    // Nếu không có cache, thử lấy từ MongoDB
+    if (mongoose.connection.readyState === 1) {
+      const rooms = await Room.find({})
+        .select('roomId people temperature humidity lightState doorState fanState lastUpdate')
+        .sort({ roomId: 1 });
+      
+      if (rooms.length > 0) {
+        return res.json(rooms);
+      }
+    }
+    
+    // Trả về mảng rỗng nếu không có dữ liệu
+    res.json([]);
   } catch (error) {
     console.error('❌ Lỗi lấy danh sách phòng:', error.message);
     res.status(500).json({ error: 'Lỗi lấy danh sách phòng' });
@@ -29,39 +50,37 @@ router.get('/', async (req, res) => {
 // GET /rooms/:roomId - Lấy thông tin chi tiết một phòng
 router.get('/:roomId', async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) {
-      // Nếu MongoDB chưa kết nối, trả về dữ liệu mặc định
-      return res.json({
-        roomId: req.params.roomId,
-        people: 0,
-        temperature: 0,
-        humidity: 0,
-        lightState: false,
-        doorState: false,
-        fanState: false,
-        lastUpdate: new Date()
-      });
-    }
-    
     const { roomId } = req.params;
-    const room = await Room.findOne({ roomId: roomId });
+    const mongoose = require('mongoose');
     
-    if (!room) {
-      // Trả về dữ liệu mặc định nếu chưa có trong database
-      return res.json({
-        roomId: roomId,
-        people: 0,
-        temperature: 0,
-        humidity: 0,
-        lightState: false,
-        doorState: false,
-        fanState: false,
-        lastUpdate: new Date()
-      });
+    // Ưu tiên lấy từ cache (dữ liệu mới nhất từ MQTT)
+    const cachedData = getFromCache(roomId);
+    if (cachedData) {
+      console.log(`📤 Trả về dữ liệu từ cache cho ${roomId}`);
+      return res.json(cachedData);
     }
     
-    res.json(room);
+    // Nếu không có trong cache, thử lấy từ MongoDB
+    if (mongoose.connection.readyState === 1) {
+      const room = await Room.findOne({ roomId: roomId });
+      if (room) {
+        console.log(`📤 Trả về dữ liệu từ MongoDB cho ${roomId}`);
+        return res.json(room);
+      }
+    }
+    
+    // Nếu không có cả cache và MongoDB, trả về dữ liệu mặc định
+    console.log(`⚠️  Không có dữ liệu cho ${roomId}, trả về mặc định`);
+    res.json({
+      roomId: roomId,
+      people: 0,
+      temperature: 0,
+      humidity: 0,
+      lightState: false,
+      doorState: false,
+      fanState: false,
+      lastUpdate: new Date()
+    });
   } catch (error) {
     console.error('❌ Lỗi lấy thông tin phòng:', error.message);
     res.status(500).json({ error: 'Lỗi lấy thông tin phòng' });

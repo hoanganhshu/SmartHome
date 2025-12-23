@@ -4,6 +4,10 @@
 const History = require('./models/History');
 const Room = require('./models/Room');
 
+// ===================== IN-MEMORY STORAGE =====================
+// Lưu trữ dữ liệu tạm thời khi MongoDB chưa kết nối
+const roomDataCache = new Map(); // Map<roomId, roomData>
+
 // Hàm xử lý khi nhận được data từ MQTT
 function handleMqttMessage(topic, message) {
   try {
@@ -14,9 +18,15 @@ function handleMqttMessage(topic, message) {
     }
     
     const roomId = parts[1]; // Lấy roomId từ topic
-    const data = JSON.parse(message.toString()); // Parse JSON data
+    const messageStr = message.toString();
+    console.log(`📥 Nhận MQTT message từ topic: ${topic}`);
+    console.log(`📥 Raw message: ${messageStr}`);
     
-    console.log(`📥 Nhận data từ ${roomId}:`, data);
+    const data = JSON.parse(messageStr); // Parse JSON data
+    console.log(`📥 Parsed data từ ${roomId}:`, JSON.stringify(data, null, 2));
+    
+    // Lưu vào cache ngay lập tức (ngay cả khi MongoDB chưa kết nối)
+    saveToCache(roomId, data);
     
     // Cập nhật thông tin phòng trong database
     updateRoomData(roomId, data);
@@ -27,6 +37,32 @@ function handleMqttMessage(topic, message) {
   } catch (error) {
     console.error('❌ Lỗi xử lý MQTT message:', error);
   }
+}
+
+// Lưu vào cache (in-memory storage)
+function saveToCache(roomId, data) {
+  try {
+    const roomData = {
+      roomId: roomId,
+      people: data.people !== undefined ? data.people : 0,
+      temperature: data.temp !== undefined ? data.temp : 0,
+      humidity: data.humidity !== undefined ? data.humidity : 0,
+      lightState: data.light !== undefined ? (data.light === 1 || data.light === true) : false,
+      doorState: data.door !== undefined ? (data.door === 1 || data.door === true) : false,
+      fanState: data.fan !== undefined ? (data.fan === 1 || data.fan === true) : false,
+      lastUpdate: new Date()
+    };
+    
+    roomDataCache.set(roomId, roomData);
+    console.log(`💾 Đã lưu vào cache: ${roomId}`, roomData);
+  } catch (error) {
+    console.error(`❌ Lỗi lưu cache cho phòng ${roomId}:`, error.message);
+  }
+}
+
+// Lấy dữ liệu từ cache
+function getFromCache(roomId) {
+  return roomDataCache.get(roomId) || null;
 }
 
 // Cập nhật dữ liệu phòng
@@ -162,6 +198,7 @@ async function recordControlCommand(roomId, command) {
 
 module.exports = {
   handleMqttMessage,
-  recordControlCommand
+  recordControlCommand,
+  getFromCache // Export để router có thể sử dụng
 };
 
